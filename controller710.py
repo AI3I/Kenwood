@@ -3,7 +3,7 @@ import serial
 import argparse
 from time import time
 from queue import Queue
-from threading import Thread
+from threading import Thread, Event
 from ptt710 import Ptt
 from cat710 import Cat
 from common710 import stamp
@@ -58,6 +58,8 @@ class Controller(object):
         self.previous_rig_dictionary = None
         self.xmlrpc_thread = None
         self.ptt_handler = None
+        self._display_queue = Queue()
+        self._display_error = Event()
 
     def _start_xmlrpc_server(self):
         time_current = time()
@@ -141,6 +143,22 @@ class Controller(object):
         self.msg_queue.put(['INFO', f"{stamp()}: XML-RPC server "
                                     f"listening on port {self.xmlrpc_port}"])
         self.cat.gui_root = self.root
+        self.root.after(50, self._poll_display)
+
+    def _poll_display(self):
+        while not self._display_queue.empty():
+            try:
+                rig_dictionary = self._display_queue.get_nowait()
+            except Exception:
+                break
+            try:
+                self.gui.update_display(rig_dictionary)
+            except UpdateDisplayException:
+                self._display_error.set()
+                self.print_error(f"Error communicating with radio on {self.serial_port}")
+                return
+        if self.root and self.controller_running:
+            self.root.after(50, self._poll_display)
 
     def controller(self):
         """
@@ -157,16 +175,11 @@ class Controller(object):
                 else:
                     # Only update the GUI display if something has changed
                     if rig_dictionary != self.previous_rig_dictionary:
-                        try:
-                            self.gui.update_display(rig_dictionary)
-                        except UpdateDisplayException as _:
-                            self.print_error(f"Error communicating with "
-                                             f"radio on {self.serial_port}")
+                        if self._display_error.is_set():
                             break
-                        else:
-                            if self.root:
-                                self.root.update()
-                            self.previous_rig_dictionary = deepcopy(rig_dictionary)
+                        snapshot = deepcopy(rig_dictionary)
+                        self._display_queue.put(snapshot)
+                        self.previous_rig_dictionary = snapshot
             else:
                 job = self.cmd_queue.get()  # Get job from queue
                 if job[0] == 'quit':

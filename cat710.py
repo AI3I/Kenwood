@@ -1,6 +1,7 @@
 import io
 import re
 import sys
+import time
 from common710 import *
 from queue import Queue
 
@@ -114,9 +115,13 @@ class Cat(object):
         try:
             self.sio.write(f"{send_string.strip()}\r")
             self.sio.flush()  # io object buffers, so force data out
-            # Replace space separating 2 character command and answer
-            # with a ',' so we can include it in the returned tuple
-            answer = re.sub(' ', ',', self.sio.readline())
+            # Retry until we get a non-empty response or the 2-second
+            # deadline expires — guards against partial reads when the
+            # serial timeout fires before the radio finishes responding.
+            deadline = time.monotonic() + 2.0
+            answer = ''
+            while not answer and time.monotonic() < deadline:
+                answer = re.sub(' ', ',', self.sio.readline())
         except Exception as error:
             raise QueryException(f"Serial Port ERROR: {error}")
         # if answer and answer != '?':
@@ -754,8 +759,13 @@ class Cat(object):
             if not self.handle_query(job[1]):
                 return []
         elif job[0] == 'command':
-            # Wait for reply_queue to empty before accepting command.
-            self.reply_queue.join()
+            # Drain any unconsumed previous reply before issuing new command.
+            while not self.reply_queue.empty():
+                try:
+                    self.reply_queue.get_nowait()
+                    self.reply_queue.task_done()
+                except Exception:
+                    break
             result = self.handle_query(job[1])
             if not result:
                 return []

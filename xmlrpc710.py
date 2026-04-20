@@ -204,10 +204,11 @@ class RigXMLRPC(object):
             :return:
             """
             self.cmd_queue.put(['command', cmd])
-            while self.rig.reply_queue.empty():
-                pass
-            answer = self.rig.reply_queue.get()
-            self.rig.reply_queue.task_done()
+            try:
+                answer = self.rig.reply_queue.get(timeout=5)
+                self.rig.reply_queue.task_done()
+            except Exception:
+                return 'N'
             answer_len = len(answer)
             if answer_len == 1:
                 return str(answer[0])
