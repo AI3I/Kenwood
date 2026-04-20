@@ -129,6 +129,7 @@ def rig_choices() -> list:
 
 
 if __name__ == "__main__":
+    controller = None
     signal.signal(signal.SIGINT, sigint_handler)
     port_list = get_ports()
     if not port_list:

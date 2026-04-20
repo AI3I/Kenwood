@@ -58,7 +58,7 @@ class RigXMLRPC(object):
         self.ptt = kwargs['ptt_handler']
         self.cmd_queue = cmd_queue
         self.rpc_server = \
-            SimpleThreadedXMLRPCServer(('0.0.0.0', self.port),
+            SimpleThreadedXMLRPCServer(('127.0.0.1', self.port),
                                        allow_none=True,
                                        requestHandler=self.RequestHandler,
                                        logRequests=False)
@@ -80,6 +80,8 @@ class RigXMLRPC(object):
         def get_mode():
             rig_d = self.rig.get_dictionary()
             data_side = rig_d['data_side']
+            if data_side is None:
+                return ''
             return rig_d[data_side]['modulation']
         self.rpc_server.register_function(get_mode, 'rig.get_mode')
         self.rpc_server.register_function(get_mode, 'rig.get_modeA')
@@ -87,6 +89,8 @@ class RigXMLRPC(object):
         def set_mode(mode: str):
             rig_d = self.rig.get_dictionary()
             data_side = rig_d['data_side']
+            if data_side is None:
+                return ''
             self.cmd_queue.put(['modulation', data_side,
                                 MODULATION_DICT['inv'][mode]])
             return rig_d[data_side]['modulation']
@@ -126,6 +130,8 @@ class RigXMLRPC(object):
         def get_frequency():
             rig_d = self.rig.get_dictionary()
             data_side = rig_d['data_side']
+            if data_side is None:
+                return '0'
             # For some reason, fldigi only works if frequency is returned
             # as a string.
             return str(int(float(rig_d[data_side]['frequency']) * 1000000))
@@ -136,6 +142,8 @@ class RigXMLRPC(object):
         def set_frequency(frequency: int):
             rig_d = self.rig.get_dictionary()
             data_side = rig_d['data_side']
+            if data_side is None:
+                return ''
             freq_f = float(frequency / 1000000)
             if within_frequency_limits(data_side, freq_f):
                 if rig_d[data_side]['mode'] != 'VFO':
@@ -177,7 +185,9 @@ class RigXMLRPC(object):
         def get_power():
             rig_d = self.rig.get_dictionary()
             data_side = rig_d['data_side']
-            power = rig_d[data_side]['frequency']
+            if data_side is None:
+                return 0
+            power = rig_d[data_side]['power']
             if power == 'L':
                 return 2
             elif power == 'M':

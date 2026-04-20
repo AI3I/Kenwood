@@ -71,6 +71,8 @@ class Controller(object):
                                  f"radio in 5 seconds")
                 # sys.exit(1)
                 self.stop()
+        if self.xmlrpc_thread is None:
+            return
         print(f"{stamp()}: Starting XML-RPC server...", file=sys.stderr)
         self.xmlrpc_thread.start()
         print(f"{stamp()}: XML-RPC server listening on port "
@@ -213,7 +215,7 @@ class Controller(object):
                       file=sys.stderr)
         if self.xmlrpc_server:
             self.xmlrpc_server.stop()
-            if self.controller_thread.is_alive():
+            if self.xmlrpc_thread and self.xmlrpc_thread.is_alive():
                 self.xmlrpc_thread.join(timeout=1)
             print(f"{stamp()}:   XML-RPC server stopped",
                   file=sys.stderr)

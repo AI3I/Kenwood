@@ -234,18 +234,23 @@ class Ptt(object):
                                                  active_high=True,
                                                  initial_value=False)
                 except BadPinFactory:
+                    self.gpio_ptt = None
                     self.gpio_ready = False
                 else:
                     self.gpio_ready = True
 
         def on(self):
-            self.gpio_ptt.on()
+            if self.gpio_ptt is not None:
+                self.gpio_ptt.on()
 
         def off(self):
-            self.gpio_ptt.off()
+            if self.gpio_ptt is not None:
+                self.gpio_ptt.off()
 
         @property
         def value(self) -> int:
+            if self.gpio_ptt is None:
+                return 0
             return self.gpio_ptt.value
 
         @property
